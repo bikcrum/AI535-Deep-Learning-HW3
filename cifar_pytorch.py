@@ -168,6 +168,7 @@ if __name__ == '__main__':
     acc_log = []
     val_acc_log = []
     val_loss_log = []
+    min_loss_so_far = float('inf')
 
     # make directory to store models
     os.makedirs('saved_models', exist_ok=True)
@@ -221,7 +222,8 @@ if __name__ == '__main__':
         val_loss /= j
 
         # Save models
-        if len(val_loss_log) == 0 or val_loss < val_loss_log[-1]:
+        if val_loss < min_loss_so_far:
+            min_loss_so_far = val_loss
             torch.save(model.state_dict(), f'saved_models/model-{time.time()}.pt')
 
         val_acc_log.append(val_acc)
