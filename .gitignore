@@ -3,3 +3,5 @@ venv
 *.pkl
 draft
 .DS_Store
+saved_models
+runs
