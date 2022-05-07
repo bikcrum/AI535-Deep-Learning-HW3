@@ -54,7 +54,7 @@ for X in itertools.product([0, 1], repeat=14):
         # c = h or x
         c = f * c + i * g
 
-        # h = !(h and x) * (h or x)
+        # h = !(h and x) * (h or x) eq. to h XOR x
         h = o * np.tanh(c)
     if np.sum(X) % 2 != int(h > 0.5):
         print("Failure", cnt, X, int(h > 0.5), np.sum(X) % 2 == int(h > 0.5))
