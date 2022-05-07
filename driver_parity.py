@@ -33,11 +33,12 @@ dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 def main():
     # Build the model and put it on the GPU
     logging.info("Building model")
-    model = ParityLSTM()
+    model = ParityLSTM(hidden_dim=64,
+                       num_layers=2)
     model.to(dev)  # move to GPU if cuda is enabled
 
     logging.info("Training model")
-    maximum_training_sequence_length = 5
+    maximum_training_sequence_length = 6
     train = Parity(split='train', max_length=maximum_training_sequence_length)
     train_loader = DataLoader(train, batch_size=100, shuffle=True, collate_fn=pad_collate)
     train_model(model, train_loader)
@@ -57,8 +58,12 @@ class ParityLSTM(torch.nn.Module):
     # __init__ builds the internal components of the model (presumably an LSTM and linear layer for classification)
     # The LSTM should have hidden dimension equal to hidden_dim
 
-    def __init__(self, hidden_dim=64):
+    def __init__(self, hidden_dim=64, num_layers=2):
         super().__init__()
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.lstm = nn.LSTM(1, hidden_dim, num_layers=num_layers, batch_first=True)
+        self.fc1 = nn.Linear(in_features=hidden_dim, out_features=2)
 
     # forward runs the model on an B x max_length x 1 tensor and outputs a B x 2 tensor representing a score for
     # even/odd parity for each element of the batch
@@ -72,7 +77,53 @@ class ParityLSTM(torch.nn.Module):
     # Output:
     #   out -- a batch_size x 2 tensor of scores for even/odd parity    
 
+    # FUNCTION IS NOT USED
+    def forward0(self, x, s):
+        # add singleton dimension
+        x = x.unsqueeze(dim=2)
+
+        # forward takes x and (h,s) which is zeros by default. Returns out for every hidden state and (h,s) is unused
+        out, _ = self.lstm.forward(x)
+
+        # Indices to get output from hidden state at length s
+        si = torch.tensor(s) - 1
+
+        # Indices to select batches
+        rs = torch.arange(0, x.shape[0])
+
+        # Get output from hidden state of LSTM
+        out = out[rs, si, :]
+
+        # Pass through relu activation (was required for training larger sequence) and then pass to fully-connected
+        out = self.fc1(F.relu(out))
+
+        return out
+
     def forward(self, x, s):
+        # add singleton dimension
+        x = x.unsqueeze(dim=2)
+
+        # convert padded sequence to sequence of variable batches to improve computational efficiency
+        x = pack_padded_sequence(x, s, batch_first=True, enforce_sorted=False)
+
+        # forward takes x and (h,s) which is zeros by default. Returns out for every hidden state and (h,s) is unused
+        out, _ = self.lstm.forward(x)
+
+        out, s = pad_packed_sequence(out, batch_first=True, padding_value=0)
+        # convert back to padded sequence from packed form (s is same as s in arg)
+
+        # zero indexing
+        si = torch.tensor(s) - 1
+
+        # Index to select batches
+        rs = torch.arange(0, out.data.shape[0])
+
+        # Get output from hidden state of LSTM
+        out = out[rs, si, :]
+
+        # Pass through relu activation (was required for training larger sequence) and then pass to fully-connected
+        out = self.fc1(F.relu(out))
+
         return out
 
     def __str__(self):
@@ -102,7 +153,7 @@ def runParityExperiment(model, max_train_length):
         logging.info("length=%d val accuracy %.3f" % (k, val_acc))
         k += 1
 
-    plt.plot(lengths, accuracy)
+    plt.plot(lengths, torch.stack(accuracy).detach().cpu())
     plt.axvline(x=max_train_length, c="k", linestyle="dashed")
     plt.xlabel("Binary String Length")
     plt.ylabel("Accuracy")
@@ -138,7 +189,8 @@ def pad_collate(batch):
     x_lens = [len(x) for x in xx]
 
     xx_pad = pad_sequence(xx, batch_first=True, padding_value=0)
-    yy = torch.LongTensor(yy)
+    # yy = torch.LongTensor(yy)
+    yy = torch.tensor(yy).long()
 
     return xx_pad, yy, x_lens
 
