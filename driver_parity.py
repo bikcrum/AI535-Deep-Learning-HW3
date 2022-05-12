@@ -153,7 +153,7 @@ def runParityExperiment(model, max_train_length):
         logging.info("length=%d val accuracy %.3f" % (k, val_acc))
         k += 1
 
-    plt.plot(lengths, torch.stack(accuracy).detach().cpu())
+    plt.plot(lengths, [acc.item() for acc in accuracy])
     plt.axvline(x=max_train_length, c="k", linestyle="dashed")
     plt.xlabel("Binary String Length")
     plt.ylabel("Accuracy")
