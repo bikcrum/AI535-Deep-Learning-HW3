@@ -33,12 +33,12 @@ dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 def main():
     # Build the model and put it on the GPU
     logging.info("Building model")
-    model = ParityLSTM(hidden_dim=1,
-                       num_layers=2)
+    model = ParityLSTM(hidden_dim=4,
+                       num_layers=1)
     model.to(dev)  # move to GPU if cuda is enabled
 
     logging.info("Training model")
-    maximum_training_sequence_length = 4
+    maximum_training_sequence_length = 5
     train = Parity(split='train', max_length=maximum_training_sequence_length)
     train_loader = DataLoader(train, batch_size=100, shuffle=True, collate_fn=pad_collate)
     train_model(model, train_loader)
@@ -94,8 +94,8 @@ class ParityLSTM(torch.nn.Module):
         # Get output from hidden state of LSTM
         out = out[rs, si, :]
 
-        # Pass through relu activation (was required for training larger sequence) and then pass to fully-connected
-        out = self.fc1(F.relu(out))
+        # Pass to fully-connected layer
+        out = self.fc1(out)
 
         return out
 
@@ -121,8 +121,8 @@ class ParityLSTM(torch.nn.Module):
         # Get output from hidden state of LSTM
         out = out[rs, si, :]
 
-        # Pass through relu activation (was required for training larger sequence) and then pass to fully-connected
-        out = self.fc1(F.relu(out))
+        # Pass to fully-connected layer
+        out = self.fc1(out)
 
         return out
 
